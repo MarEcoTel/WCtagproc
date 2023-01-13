@@ -1,0 +1,158 @@
+---
+title: "tagproc: getting your Wildlife Computers tag data from raw to ready"
+author: "David Sweeney"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Vignette Title}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+The goal of this package is, as the title suggests, to help users of Wildlife Computers tag data get their data processed and ready for analysis. This package is designed to clean up your data, filter it, and allow for initial data exploration. This package is a constant work in progress as we hope to be able to include more tools as we get more ideas and receive feedback from you. So please, be thinking of ways to improve this package as you begin to read this tutorial and ultimately use the package.
+
+First, make sure to pull the functions in this package from the correct folder directory where you have stored them.
+
+```{r}
+R.utils::sourceDirectory('C:/Users/marec/Docs/tagproc/R')
+```
+
+To begin, I am going to clean up the data a little bit and create a new folder within our Wildlife Computers tag data folder that has data with standardized column names as used by the tools in this package. This step is not necessary to use other tools in the package, however, it might make things easier as no manual column header changes would need to be made. I am actually working on getting rid of this step and using the headers from the original WC portal data, but that will take some extra work that I have not committed to doing yet.
+
+```{r}
+#specify folder directory for WC data
+tag_folder <- "C:/Users/marec/Docs/TagProcApp-20180519/ZcTag059-Portal-Folder"
+prettifyWC(tag_folder)
+WCpretty_dir <- paste0(tag_folder,'/WC-pretty')
+```
+
+The next step is optional, and is most directly useful for cases where location data has been reprocessed by the kalman filter and returned as a 1 column csv. If your tag has this and it needs to be processed, used this next code chunk. Otherwise, move on to the next section. An example of what the input might look like is provided.
+
+```{r,eval=F}
+#include reprocessed data into WCpretty folder if present
+#it is not present for this tag
+prettify.reproc(filepath = "G:/Shared drives/METR_TagData/Cuvier's beaked/Sat Tag- Raw/Zica-20190512-172728/NWFSCHA-236-20191120181155/172728_2019-05-12_2019-06-22.kalman.csv", 
+                WCpretty_dir = WCpretty_dir, DeployID = 'Zica-20190512-172728',
+                dplat = 29.1447, dplong = -118.2813, dptime = "2019/5/12 14:34:19", 
+                dplc = 3, dperror = 100)
+```
+
+The new folder that is created is located within the tag data folder and is named WC-pretty. Opening up this new folder, you will see the same data files, but they will have been organized. 
+
+We are next going to pull in the animal track for this animal and perform some filtering. We will run the Douglas-argos filter and Freitas filter on the argos data and a basic GPS filter (filtering locations by residual values and satellite numbers) on our GPS data. Note that if your what does not have GPS data, the gps.filter will obviously not work the following code chunk will give you an error.
+
+Note that if at any time you wish to save a dataframe into a csv file, simply use the following line of code: `write.csv(data, filepath, row.names = FALSE)`, where data is the data you wish to save and filepath is the folder directory and name for the file you are creating.
+
+```{r}
+#pull in data from prettified WC folder that was just made
+GPS_data <- read.csv(paste0(WCpretty_dir,"/ZcTag058-164613-3-FastGPS.csv"))
+Argos_data <- read.csv(paste0(WCpretty_dir,"/164613-Locations.csv"))
+
+#run filters
+DF_data <- douglas.filter(Argos_data, argos_method = 'K', method = 'DAR', 
+                          keep_lc = 1, maxredun = 3, duplrec = 'offset', 
+                          minrate = 10, ratecoef = 25, r_only = FALSE)$retained
+FF_data <- freitas.filter(Argos_data, vmax = 2, ang = c(15, 25), distlim = c(2.5, 5))$retained
+GF_data <- gps.filter(GPS_data, max.te = 3 , max.residual = 35)$retained
+```
+
+I will now create an estimated track from a continuous-time correlated random walk model. The estimated track can have locations predicted for different time intervals (e.g. 30 mins). The track can also be estimated at specificly desired timestamps. Here I will be specifying my timestamps as the start times of each behavior in the behavior-log file. See the 'crawl' package for more options on possible time intervals. However, before we do that we should split our dive behavior file into dive data and message data using the `split.dive.msg` function in this package, which wil also lable our surfacings based on where thy fall in the dive cycle.
+
+```{r, fig.height=4, fig.width=7, fig.align='center'}
+#pull in data
+Beh_data <- read.csv(paste0(WCpretty_dir,"/164613-Behavior.csv"))
+
+#split behavior data
+#dive data will have kmeans clustering performed and borderline dives marked
+split_Beh <- split.dive.msg(Beh_data, kclusters = 2, lag = 15)
+
+#can also use '1 hour' for model.interval input
+CRAWL_data <- crawl.apply(DF_data, model.interval = split_Beh$Dives$StartTime, crs = 2230)
+```
+
+Now we can plot the CRAWL data to see how it looks. This plotting tool is the most basic location plotting tool in the package. Later on, we will use the `spatial.map` function to plot our data over ocean topography.
+
+```{r, fig.height=4, fig.width=7, fig.align='center'}
+tag.mapper(CRAWL_data$preds, zoom = 1, lon.offset = 0, lat.offset = 0,
+                       lwd = .5, pch = 1, cex = .5, col = "black", 
+                       mars = c(1, 1, 1, 1), mapfile = NULL)
+```
+
+As mentioned, we can also plot the animal track on a map after converting our data to a spatial object. Luckily, part of the `crawl.apply` function's output is contains the estimated animal locations as spatial objects, which we an directly input to the `spatial.map` tool. Additionally, we can calculate home range estimates and add them to the map. Before using the `spatial.map` function, however, you need to make sure you have internet connection as the topography data is pulled from the internet upon calling this function.
+
+```{r, fig.height=4, fig.width=7, fig.align='center'}
+#find home ranges (95% and 50%), outputs into list elements that 
+#are indexed below in the plotting tool
+HR_data <- home.range(DF_data, perc = c(50, 95), kernel.method = 'href', unout = 'km2')
+
+#plot all data
+spatial.map(CRAWL_data$lines, CRAWL_data$points, HR_data[[1]], HR_data[[2]], 
+            color = c('red','black', 'orange' ,'yellow'), 
+            size = c(1.5, .25, 1, 1), title = 'KDE Home Ranges', subtitle = '95% and 50%')
+```
+
+We can also use the `polyprox` and `plot.polygons` functions to plot animal tracks over desired spatial polygons. The `polyprox` tool is used to gather data on the proximity of each whale location to the polygons provided, and then the `plot.polygons` tool takes the same data, plots it, and marks the locations when the whale was within each of the polygons. The `plot.polygons` function can be run with tag location data that is not the output of the `polyprox` function, but in these cases the locations within each of the polygons will not be marked.
+
+```{r, fig.height=4, fig.width=7, fig.align='center'}
+#get polygon proximity data
+POLY_data <- polyprox(CRAWL_data$preds, polypath = "C:/Users/marec/Docs/TagProcApp-20180519/20180519/Resources-Polygons")
+
+#plot polygon data
+plot.polygons(POLY_data, polypath = "C:/Users/marec/Docs/TagProcApp-20180519/20180519/Resources-Polygons")
+```
+
+We should also view the dive profile of this individual. 
+
+```{r}
+#plot dives
+diveplot(split_Beh$Dives)
+```
+
+Now that we see what the dive profile looks like, we can also look at some simple summary stats found by the dive.summary tool. We will allow for kmeans analysis to separate deep/long from shallow/short dives. The kmeans clustering in this function divides dives into only two clusters, which may not be good for all species. Hence we allow for a simple depth threshold to be used as well.
+
+```{r}
+#collect summary data
+dive.summary(split_Beh$Dives, forage.cutoff = 'kmeans')
+```
+
+Next, we can visualize the solar and lunar data associated with our tagged whale's diving behavior. Because `bhr.interpolate` only pulls prior locations and future locations, not the closest location in time regardless, the first few dives will not be shown as no location data is associated with them.
+
+```{r, fig.height=4, fig.width=7, fig.align='center'}
+#associate CRAWL locations with diving behavior
+DIVE_data <- bhvr.interpolate(split_Beh$Dives, CRAWL_data$preds)
+
+#get solar and lunar data
+SL_data <- sun.moon(DIVE_data)
+
+#plot it 
+plot.sunmoon(SL_data, xlab = 'Deep Dive Number')
+```
+
+Finally, we can view bathymetry data in association with our tag data. The `bathy.sync` function has two methods of gathering bathymetric data. One method (leaving the "bathy.folder" input NULL) will pull data from the internet. The other option is to provide a folder path to where a lot of csv files containing bathymetric data are kept. Here, we are simply going to use the online method.
+
+```{r, fig.height=4, fig.width=7, fig.align='center'}
+#collect bathymetry data
+BATHY_data <- bathy.sync(SL_data)
+
+#plot data
+plot.seafloor(BATHY_data, xlab = "Deep Dive Number")
+```
+
+The last thing that we can do is take our archival tag data and simplify the diving behaviors down to an identical looking data format at that from a WC portal behavior file.
+
+```{r}
+arch_beh <- simplify.archival(tag = "G:/Shared drives/FreakinBeakinTagData/Zica-20180113-173188/Zica-20180113-173188-cal.nc", 
+                              mindepth = 50, mindur = 30, divestart = NULL, 
+                              wetdry = 100, kclusters = 2, lag = 15)
+head(arch_beh, 3)
+```
+
+
+More tools to this package may be coming as time permits and ideas flow in. For now, please let me know if you run into any bugs or if you have any specific needs that this package does not accomplish for you.
