@@ -1,4 +1,4 @@
-Package: TagProcApp
+Package: WCtagproc
 Type: Package
 Title: An app for getting your Wildlife Computers tag data
 from raw to ready
@@ -11,5 +11,5 @@ ensure that multiple deployments are all processed in the exact same way.
 License: What license is it under?
 Encoding: UTF-8
 LazyData: true
-URL: http://github.com/dasweeney/TagProcApp
-BugReports: http://github.com/dasweeney/TagProcApp/issues
+URL: https://github.com/MarEcoTel/WCtagproc
+BugReports: https://github.com/MarEcoTel/WCtagproc/issues
