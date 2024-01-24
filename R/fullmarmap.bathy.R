@@ -33,7 +33,7 @@ fullmarmap.bathy <- function(data, rad = 1, res = 1e-10, names = c("Longitude","
 
   #prep data outputs
   data <- data %>% mutate(bathy_resolution_mins = (as.numeric(rownames(bath_full))[2] - as.numeric(rownames(bath_full))[1]) / 0.016667,
-                          bathy_radius_km = rad, bathy_key = "negative bathy is below sea level while positive is on land",
+                          bathy_radius_km = rad, bathy_key = "positive bathy is below sea level while negative is on land",
                           bathy_nearest = NA, bathy_mean = NA, bathy_median = NA, bathy_sd = NA, bathy_iqr = NA,
                           bathy_slope = NA, bathy_aspect = NA, bathy_min = NA, bathy_max = NA, bathy_n = NA)
 
@@ -56,12 +56,12 @@ fullmarmap.bathy <- function(data, rad = 1, res = 1e-10, names = c("Longitude","
                                  lat < top & lat > bottom)
     bath$dist <- as.vector(geosphere::distm(c(locs$lon[i], locs$lat[i]), bath[,c(1:2)],
                                             geosphere::distVincentyEllipsoid)/1000)
-    bath_rad <- bath %>% filter(dist <= rad)
+    bath_rad <- bath %>% filter(dist <= rad) %>% mutate(z = z*-1)
 
     #calculate stats
     data$bathy_nearest[i] <- bath_rad$z[which.min(bath_rad$dist)]
-    data$bathy_min[i] <- max(bath_rad$z) #positive bathy = above sea level
-    data$bathy_max[i] <- min(bath_rad$z) #negative bathy = below sea level
+    data$bathy_min[i] <- min(bath_rad$z) #positive bathy = below sea level
+    data$bathy_max[i] <- max(bath_rad$z) #negative bathy = above sea level
     data$bathy_n[i] <- length(bath_rad$z)
     data$bathy_mean[i] <- mean(bath_rad$z)
     data$bathy_median[i] <- median(bath_rad$z)
@@ -70,10 +70,10 @@ fullmarmap.bathy <- function(data, rad = 1, res = 1e-10, names = c("Longitude","
 
     #aspect and slope
     zdiff <- max(bath_rad$z) - min(bath_rad$z)
-    lon1 <- bath_rad$lon[which.max(bath_rad$z)] #positive bathy = above sea level
-    lon2 <- bath_rad$lon[which.min(bath_rad$z)] #negative bathy = below sea level
-    lat1 <- bath_rad$lat[which.max(bath_rad$z)]
-    lat2 <- bath_rad$lat[which.min(bath_rad$z)]
+    lon1 <- bath_rad$lon[which.min(bath_rad$z)] 
+    lon2 <- bath_rad$lon[which.max(bath_rad$z)] 
+    lat1 <- bath_rad$lat[which.min(bath_rad$z)]
+    lat2 <- bath_rad$lat[which.max(bath_rad$z)]
     zdist <- geosphere::distVincentyEllipsoid(c(lon1, lat1),c(lon2,lat2))
     data$bathy_slope[i] <- zdiff / zdist
     data$bathy_aspect[i] <- geosphere::bearing(c(lon1,lat1), c(lon2,lat2))
