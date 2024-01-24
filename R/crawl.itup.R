@@ -1,4 +1,6 @@
 crawl.itup <- function(data, model.interval) {
+  require(crawl)
+  require(sf)
   crs <- 2230
   if ('POSIXct' %in% class(data$Date) == FALSE) {
     data$Date <- as.POSIXct(as.character(data$Date), format = '%m/%d/%Y %H:%M:%S', tz='UTC')
