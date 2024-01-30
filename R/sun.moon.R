@@ -12,7 +12,7 @@ sun.moon <- function(data) {
   LON <- data[, which(names(data) %in% c("Longitude", "StartLon", "Long"))]
 
   # Setup variables
-  sunrise <- sunset <- solarNoon <- civilDawn <- endDawn <- civilDusk <- startDusk <- rep(NA, times = nrow(data))
+  #sunrise <- sunset <- solarNoon <- civilDawn <- endDawn <- civilDusk <- startDusk <- rep(NA, times = nrow(data))
   sunAzimuth <- sunAltitude <- moonAzimuth <- moonAltitude <- moonIlluminatedFraction <- moonPhase <- rep(NA, times = nrow(data))
 
   # Loop thru each entry, calculate variables
@@ -21,13 +21,13 @@ sun.moon <- function(data) {
     timei <- as.POSIXct(format(TIME[i], tz = "UTC"), tz = "UTC")
 
     if ((!is.na(posmatrix[1])) & (!is.na(posmatrix[2]))) {
-      sunrise[i] <- as.character(as.POSIXct(maptools::sunriset(posmatrix, timei, direction = "sunrise", POSIXct.out = T)$time))
-      sunset[i]  <- as.character(as.POSIXct(maptools::sunriset(posmatrix, timei, direction = "sunset", POSIXct.out = T)$time))
-      solarNoon[i] <- as.character(as.POSIXct(maptools::solarnoon(posmatrix, timei, POSIXct.out = T)$time))
-      civilDawn[i] <- as.character(as.POSIXct(maptools::crepuscule(posmatrix, timei, solarDep = 6, direction = "dawn", POSIXct.out = T)$time))
-      endDawn[i] <- as.character(as.POSIXct(maptools::crepuscule(posmatrix, timei, solarDep = -6, direction = "dawn", POSIXct.out = T)$time))
-      civilDusk[i] <- as.character(as.POSIXct(maptools::crepuscule(posmatrix, timei, solarDep = 6, direction = "dusk", POSIXct.out = T)$time))
-      startDusk[i] <- as.character(as.POSIXct(maptools::crepuscule(posmatrix, timei, solarDep = -6, direction = "dusk", POSIXct.out = T)$time))
+      #sunrise[i] <- as.character(as.POSIXct(maptools::sunriset(posmatrix, timei, direction = "sunrise", POSIXct.out = T)$time))
+      #sunset[i]  <- as.character(as.POSIXct(maptools::sunriset(posmatrix, timei, direction = "sunset", POSIXct.out = T)$time))
+      #solarNoon[i] <- as.character(as.POSIXct(maptools::solarnoon(posmatrix, timei, POSIXct.out = T)$time))
+      #civilDawn[i] <- as.character(as.POSIXct(maptools::crepuscule(posmatrix, timei, solarDep = 6, direction = "dawn", POSIXct.out = T)$time))
+      #endDawn[i] <- as.character(as.POSIXct(maptools::crepuscule(posmatrix, timei, solarDep = -6, direction = "dawn", POSIXct.out = T)$time))
+      #civilDusk[i] <- as.character(as.POSIXct(maptools::crepuscule(posmatrix, timei, solarDep = 6, direction = "dusk", POSIXct.out = T)$time))
+      #startDusk[i] <- as.character(as.POSIXct(maptools::crepuscule(posmatrix, timei, solarDep = -6, direction = "dusk", POSIXct.out = T)$time))
 
       sunangle <- oce::sunAngle(timei, posmatrix[1, 1], posmatrix[1, 2])  #package oce and maptools packages calculate the sun and moon algortihmically. No lookup files needed.
       sunAzimuth[i] <- sunangle$azimuth
@@ -41,13 +41,13 @@ sun.moon <- function(data) {
   }
 
   # Add calculated variables to results dataframe
-  data$sunrise <- time.turner(sunrise)$raw
-  data$sunset <- time.turner(sunset)$raw
-  data$solarNoon <- time.turner(solarNoon)$raw
-  data$civilDawn <- time.turner(civilDawn)$raw
-  data$endDawn <- time.turner(endDawn)$raw
-  data$civilDusk <- time.turner(civilDusk)$raw
-  data$startDusk <- time.turner(startDusk)$raw
+  #data$sunrise <- time.turner(sunrise)$raw
+  #data$sunset <- time.turner(sunset)$raw
+  #data$solarNoon <- time.turner(solarNoon)$raw
+  #data$civilDawn <- time.turner(civilDawn)$raw
+  #data$endDawn <- time.turner(endDawn)$raw
+  #data$civilDusk <- time.turner(civilDusk)$raw
+  #data$startDusk <- time.turner(startDusk)$raw
   data$sunAzimuth <- sunAzimuth
   data$sunAltitude <- sunAltitude
   data$moonAzimuth <- moonAzimuth
